@@ -1,0 +1,27 @@
+name: Forest App Daily Report
+
+on:
+  schedule:
+    - cron: '0 1 * * *'
+  workflow_dispatch:
+
+jobs:
+  run-report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests anthropic
+
+      - name: Run pipeline
+        env:
+          GITHUB_TOKEN: ${{ secrets.REPORT_GITHUB_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+        run: python pipeline.py

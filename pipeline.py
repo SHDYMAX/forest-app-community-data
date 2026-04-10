@@ -1,16 +1,17 @@
-import os, json, requests, base64, time, anthropic
+import os, json, requests, base64, time, anthropic, re
 from datetime import datetime, timezone, date
 
-GITHUB_TOKEN   = os.environ["GITHUB_TOKEN"]
-ANTHROPIC_KEY  = os.environ["ANTHROPIC_API_KEY"]
-SLACK_WEBHOOK  = os.environ["SLACK_WEBHOOK"]
-REPO           = "SHDYMAX/forest-app-community-data"
-GH_HEADERS     = {"Authorization": f"token {GITHUB_TOKEN}"}
-UA             = {"User-Agent": "ForestApp-Report/1.0"}
-COMPLAINT_KW   = ["bug","broken","crash","doesn't work","not working","glitch",
-                   "issue","problem","refund","expensive","hate","annoying",
-                   "disappointed","freeze","stuck","won't open","lost data","deleted"]
-TODAY          = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+GITHUB_TOKEN  = os.environ["GITHUB_TOKEN"]
+ANTHROPIC_KEY = os.environ["ANTHROPIC_API_KEY"]
+SLACK_WEBHOOK = os.environ["SLACK_WEBHOOK"]
+FIRECRAWL_KEY = os.environ["FIRECRAWL_API_KEY"]
+REPO          = "SHDYMAX/forest-app-community-data"
+GH_HEADERS    = {"Authorization": f"token {GITHUB_TOKEN}"}
+FC_HEADERS    = {"Authorization": f"Bearer {FIRECRAWL_KEY}", "Content-Type": "application/json"}
+COMPLAINT_KW  = ["bug","broken","crash","doesn't work","not working","glitch",
+                  "issue","problem","refund","expensive","hate","annoying",
+                  "disappointed","freeze","stuck","won't open","lost data","deleted"]
+TODAY         = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
 # ── STEP 1：讀取歷史資料 ──────────────────────────────
 print("=== STEP 1: Load existing data ===")
@@ -21,95 +22,110 @@ existing     = json.loads(base64.b64decode(file_data["content"]).decode())
 existing_ids = {c["id"] for c in existing}
 print(f"Loaded {len(existing)} existing entries")
 
-# ── STEP 2：搜尋 Reddit ──────────────────────────────
-print("=== STEP 2: Search Reddit ===")
-searches = [
-    ("https://www.reddit.com/r/forestapp/new.json?limit=50",                                                     "forest_app"),
-    ("https://www.reddit.com/r/forestapp/search.json?q=forest&sort=new&limit=25&t=month&restrict_sr=1",          "forest_app"),
-    ("https://www.reddit.com/search.json?q=Forest+App+productivity&sort=new&limit=25&t=month",                   "forest_app"),
-    ("https://www.reddit.com/r/productivity/search.json?q=Forest+App&sort=new&limit=25&t=month&restrict_sr=1",   "forest_app"),
-    ("https://www.reddit.com/r/nosurf/search.json?q=Forest+App&sort=new&limit=25&t=month&restrict_sr=1",         "forest_app"),
-    ("https://www.reddit.com/r/ADHD/search.json?q=Forest+App&sort=new&limit=25&t=month&restrict_sr=1",           "forest_app"),
-    ("https://www.reddit.com/r/getdisciplined/search.json?q=Forest+App&sort=new&limit=25&t=month&restrict_sr=1", "forest_app"),
-    ("https://www.reddit.com/search.json?q=Opal+app&sort=new&limit=25&t=month",                                  "opal"),
-    ("https://www.reddit.com/r/nosurf/search.json?q=Opal&sort=new&limit=25&t=month&restrict_sr=1",               "opal"),
-    ("https://www.reddit.com/r/digitalminimalism/search.json?q=Opal&sort=new&limit=25&t=month&restrict_sr=1",    "opal"),
-    ("https://www.reddit.com/r/ProductivityApps/search.json?q=Opal&sort=new&limit=25&t=month&restrict_sr=1",     "opal"),
-    ("https://www.reddit.com/r/productivity/search.json?q=Opal&sort=new&limit=25&t=month&restrict_sr=1",         "opal"),
-    ("https://www.reddit.com/search.json?q=focus+friend+app&sort=new&limit=25&t=month",                          "focus_community"),
-    ("https://www.reddit.com/search.json?q=body+doubling+focus+app&sort=new&limit=25&t=month",                   "focus_community"),
+# ── STEP 2：用 Firecrawl 搜尋 Reddit ────────────────
+print("=== STEP 2: Search Reddit via Firecrawl ===")
+
+search_queries = [
+    ('"Forest App" focus timer site:reddit.com',         "forest_app"),
+    ('"Forest App" productivity site:reddit.com',        "forest_app"),
+    ('site:reddit.com/r/forestapp',                      "forest_app"),
+    ('"Forest App" study site:reddit.com',               "forest_app"),
+    ('Opal app screen time blocker site:reddit.com',     "opal"),
+    ('Opal app focus site:reddit.com',                   "opal"),
+    ('focus friend app virtual study site:reddit.com',   "focus_community"),
+    ('body doubling focus app site:reddit.com',          "focus_community"),
 ]
 
-raw_results = []
-for url, category in searches:
+def extract_subreddit(url):
+    m = re.search(r'reddit\.com/r/([^/]+)', url)
+    return m.group(1) if m else ""
+
+def extract_post_id(url):
+    m = re.search(r'/comments/([a-z0-9]+)/', url)
+    return m.group(1) if m else re.sub(r'[^a-z0-9]', '', url)[-10:]
+
+all_results = []
+for query, category in search_queries:
     try:
-        res  = requests.get(url, headers=UA, timeout=15)
-        posts = res.json().get("data", {}).get("children", [])
-        raw_results.append((posts, category))
-        print(f"  {category}: {len(posts)} posts")
+        r = requests.post(
+            "https://api.firecrawl.dev/v1/search",
+            headers=FC_HEADERS,
+            json={"query": query, "limit": 10},
+            timeout=30)
+        items = r.json().get("data", [])
+        reddit_items = [i for i in items
+                        if "reddit.com/r/" in i.get("url","")
+                        and "/comments/" in i.get("url","")]
+        all_results.extend([(i, category) for i in reddit_items])
+        print(f"  [{category}] '{query[:50]}': {len(reddit_items)} posts")
     except Exception as e:
         print(f"  Failed: {e}")
     time.sleep(2)
 
 # ── STEP 3：解析文章 + 抓留言 ───────────────────────
-print("=== STEP 3: Parse posts + fetch comments ===")
+print("=== STEP 3: Parse + fetch comments ===")
 new_entries = []
 
-for posts, category in raw_results:
-    for p in posts:
-        post = p.get("data", {})
-        pid  = post.get("id", "")
-        if not pid or pid in existing_ids:
-            continue
+for result, category in all_results:
+    url   = result.get("url", "")
+    title = result.get("title", "").replace(" : ", " ").replace(" - Reddit", "").strip()
+    desc  = result.get("description", "")
+    pid   = extract_post_id(url)
 
-        title = post.get("title", "")
-        body  = post.get("selftext", "")[:500]
-        text  = (title + " " + body).lower()
+    if not pid or pid in existing_ids:
+        continue
 
-        if category == "forest_app" and not any(k in text for k in
-            ["forest app","forestapp","forest - stay","pomodoro","focus timer",
-             "plant tree","grow tree","forest"]):
-            continue
-        if category == "opal" and "opal" not in text:
-            continue
+    text = (title + " " + desc).lower()
+    if category == "forest_app" and not any(k in text for k in
+        ["forest app","forestapp","forest","focus timer","plant tree","pomodoro"]):
+        continue
+    if category == "opal" and "opal" not in text:
+        continue
 
-        flagged = [k for k in COMPLAINT_KW if k in text]
-        entry = {
-            "id": pid, "type": "post", "date_collected": TODAY,
-            "category": category, "subreddit": post.get("subreddit", ""),
-            "title": title, "body": body[:400],
-            "author": post.get("author", ""), "score": post.get("score", 0),
-            "url": "https://reddit.com" + post.get("permalink", ""),
-            "is_complaint": bool(flagged), "complaint_keywords": flagged,
-        }
-        new_entries.append(entry)
-        existing_ids.add(pid)
+    flagged = [k for k in COMPLAINT_KW if k in text]
+    entry = {
+        "id": pid, "type": "post", "date_collected": TODAY,
+        "category": category, "subreddit": extract_subreddit(url),
+        "title": title, "body": desc[:400], "author": "", "score": 0,
+        "url": url, "is_complaint": bool(flagged), "complaint_keywords": flagged,
+    }
+    new_entries.append(entry)
+    existing_ids.add(pid)
 
-        time.sleep(1.5)
-        try:
-            cr = requests.get(
-                f"https://www.reddit.com{post.get('permalink','')}.json?limit=15&sort=top",
-                headers=UA, timeout=15)
-            comments = cr.json()[1].get("data", {}).get("children", [])
-            for c in comments[:10]:
-                cd    = c.get("data", {})
-                cid   = cd.get("id", "")
-                cbody = cd.get("body", "")
-                if not cid or not cbody or cbody in ["[deleted]","[removed]"] or cid in existing_ids:
-                    continue
-                cflagged = [k for k in COMPLAINT_KW if k in cbody.lower()]
-                new_entries.append({
-                    "id": cid, "type": "comment", "date_collected": TODAY,
-                    "category": category, "subreddit": post.get("subreddit", ""),
-                    "title": f"[留言] {title}", "body": cbody[:400],
-                    "author": cd.get("author", ""), "score": cd.get("score", 0),
-                    "url": "https://reddit.com" + post.get("permalink", "") + cd.get("id", ""),
-                    "is_complaint": bool(cflagged), "complaint_keywords": cflagged,
-                    "parent_post_id": pid,
-                })
-                existing_ids.add(cid)
-        except Exception as e:
-            print(f"  Comment error {pid}: {e}")
+# 抓留言（只抓前 8 篇省 Firecrawl 額度）
+for post in [e for e in new_entries if e["type"] == "post"][:8]:
+    try:
+        time.sleep(2)
+        r = requests.post(
+            "https://api.firecrawl.dev/v1/scrape",
+            headers=FC_HEADERS,
+            json={"url": post["url"], "formats": ["markdown"], "onlyMainContent": True},
+            timeout=30)
+        md = r.json().get("data", {}).get("markdown", "")
+
+        # 從 markdown 提取評論段落
+        paragraphs = [p.strip() for p in re.split(r'\n{2,}', md)
+                      if 40 < len(p.strip()) < 500
+                      and not p.strip().startswith("#")
+                      and not p.strip().startswith("http")][:10]
+
+        for i, para in enumerate(paragraphs):
+            cid = f"{post['id']}_c{i}"
+            if cid in existing_ids:
+                continue
+            cflagged = [k for k in COMPLAINT_KW if k in para.lower()]
+            new_entries.append({
+                "id": cid, "type": "comment", "date_collected": TODAY,
+                "category": post["category"], "subreddit": post["subreddit"],
+                "title": f"[留言] {post['title']}", "body": para[:400],
+                "author": "", "score": 0, "url": post["url"],
+                "is_complaint": bool(cflagged), "complaint_keywords": cflagged,
+                "parent_post_id": post["id"],
+            })
+            existing_ids.add(cid)
+        print(f"  Scraped {len(paragraphs)} comments: {post['subreddit']}/{post['id']}")
+    except Exception as e:
+        print(f"  Scrape error {post['id']}: {e}")
 
 print(f"New: {len(new_entries)} "
       f"(posts:{sum(1 for e in new_entries if e['type']=='post')}, "
@@ -119,7 +135,7 @@ print(f"New: {len(new_entries)} "
 print("=== STEP 4: Generate AI summary ===")
 
 def fmt(entries):
-    items = [f"[{e['type']}] r/{e['subreddit']} score:{e['score']}\n{e['title']}\n{e['body'][:300]}"
+    items = [f"[{e['type']}] r/{e['subreddit']}\n{e['title']}\n{e['body'][:300]}"
              for e in entries[:30]]
     return "\n\n---\n\n".join(items) if items else "（無資料）"
 

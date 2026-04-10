@@ -1,7 +1,6 @@
-import os, json, requests, base64, time, subprocess
+import os, json, requests, base64, time, anthropic
 from datetime import datetime, timezone, date
 
-# ── 設定（從環境變數讀取）──────────────────────────
 GITHUB_TOKEN   = os.environ["GITHUB_TOKEN"]
 ANTHROPIC_KEY  = os.environ["ANTHROPIC_API_KEY"]
 SLACK_WEBHOOK  = os.environ["SLACK_WEBHOOK"]
@@ -13,37 +12,43 @@ COMPLAINT_KW   = ["bug","broken","crash","doesn't work","not working","glitch",
                    "disappointed","freeze","stuck","won't open","lost data","deleted"]
 TODAY          = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
-# ── STEP 1：從 GitHub 讀取歷史資料 ──────────────────
+# ── STEP 1：讀取歷史資料 ──────────────────────────────
 print("=== STEP 1: Load existing data ===")
 r = requests.get(f"https://api.github.com/repos/{REPO}/contents/comments.json", headers=GH_HEADERS)
-file_data  = r.json()
-file_sha   = file_data["sha"]
-existing   = json.loads(base64.b64decode(file_data["content"]).decode())
+file_data    = r.json()
+file_sha     = file_data["sha"]
+existing     = json.loads(base64.b64decode(file_data["content"]).decode())
 existing_ids = {c["id"] for c in existing}
 print(f"Loaded {len(existing)} existing entries")
 
 # ── STEP 2：搜尋 Reddit ──────────────────────────────
 print("=== STEP 2: Search Reddit ===")
 searches = [
-    ("https://www.reddit.com/search.json?q=Forest+App+productivity&sort=new&limit=25&t=week",       "forest_app"),
-    ("https://www.reddit.com/r/productivity/search.json?q=Forest+App&sort=new&limit=25&t=week&restrict_sr=1", "forest_app"),
-    ("https://www.reddit.com/r/nosurf/search.json?q=Forest&sort=new&limit=25&t=week&restrict_sr=1", "forest_app"),
-    ("https://www.reddit.com/r/ADHD/search.json?q=Forest+App&sort=new&limit=25&t=week&restrict_sr=1","forest_app"),
-    ("https://www.reddit.com/r/getdisciplined/search.json?q=Forest+App&sort=new&limit=25&t=week&restrict_sr=1","forest_app"),
-    ("https://www.reddit.com/search.json?q=Opal+app+screen+time&sort=new&limit=25&t=week",          "opal"),
-    ("https://www.reddit.com/search.json?q=focus+friend+app&sort=new&limit=25&t=week",              "focus_community"),
-    ("https://www.reddit.com/search.json?q=body+doubling+focus+app&sort=new&limit=25&t=week",       "focus_community"),
+    ("https://www.reddit.com/r/forestapp/new.json?limit=50",                                                     "forest_app"),
+    ("https://www.reddit.com/r/forestapp/search.json?q=forest&sort=new&limit=25&t=month&restrict_sr=1",          "forest_app"),
+    ("https://www.reddit.com/search.json?q=Forest+App+productivity&sort=new&limit=25&t=month",                   "forest_app"),
+    ("https://www.reddit.com/r/productivity/search.json?q=Forest+App&sort=new&limit=25&t=month&restrict_sr=1",   "forest_app"),
+    ("https://www.reddit.com/r/nosurf/search.json?q=Forest+App&sort=new&limit=25&t=month&restrict_sr=1",         "forest_app"),
+    ("https://www.reddit.com/r/ADHD/search.json?q=Forest+App&sort=new&limit=25&t=month&restrict_sr=1",           "forest_app"),
+    ("https://www.reddit.com/r/getdisciplined/search.json?q=Forest+App&sort=new&limit=25&t=month&restrict_sr=1", "forest_app"),
+    ("https://www.reddit.com/search.json?q=Opal+app&sort=new&limit=25&t=month",                                  "opal"),
+    ("https://www.reddit.com/r/nosurf/search.json?q=Opal&sort=new&limit=25&t=month&restrict_sr=1",               "opal"),
+    ("https://www.reddit.com/r/digitalminimalism/search.json?q=Opal&sort=new&limit=25&t=month&restrict_sr=1",    "opal"),
+    ("https://www.reddit.com/r/ProductivityApps/search.json?q=Opal&sort=new&limit=25&t=month&restrict_sr=1",     "opal"),
+    ("https://www.reddit.com/r/productivity/search.json?q=Opal&sort=new&limit=25&t=month&restrict_sr=1",         "opal"),
+    ("https://www.reddit.com/search.json?q=focus+friend+app&sort=new&limit=25&t=month",                          "focus_community"),
+    ("https://www.reddit.com/search.json?q=body+doubling+focus+app&sort=new&limit=25&t=month",                   "focus_community"),
 ]
 
 raw_results = []
 for url, category in searches:
     try:
-        res = requests.get(url, headers=UA, timeout=15)
+        res  = requests.get(url, headers=UA, timeout=15)
         posts = res.json().get("data", {}).get("children", [])
         raw_results.append((posts, category))
-        print(f"  {category}: {len(posts)} posts from {url.split('?')[0]}")
+        print(f"  {category}: {len(posts)} posts")
     except Exception as e:
-        print(f"  Search failed: {e}")
+        print(f"  Failed: {e}")
     time.sleep(2)
 
 # ── STEP 3：解析文章 + 抓留言 ───────────────────────
@@ -62,10 +67,10 @@ for posts, category in raw_results:
         text  = (title + " " + body).lower()
 
         if category == "forest_app" and not any(k in text for k in
-            ["forest app","forestapp","forest - stay","pomodoro","focus timer","plant tree","grow tree"]):
+            ["forest app","forestapp","forest - stay","pomodoro","focus timer",
+             "plant tree","grow tree","forest"]):
             continue
-        if category == "opal" and not any(k in text for k in
-            ["opal app","opal screen","opal block","opal focus"]):
+        if category == "opal" and "opal" not in text:
             continue
 
         flagged = [k for k in COMPLAINT_KW if k in text]
@@ -80,7 +85,6 @@ for posts, category in raw_results:
         new_entries.append(entry)
         existing_ids.add(pid)
 
-        # 抓留言
         time.sleep(1.5)
         try:
             cr = requests.get(
@@ -88,8 +92,8 @@ for posts, category in raw_results:
                 headers=UA, timeout=15)
             comments = cr.json()[1].get("data", {}).get("children", [])
             for c in comments[:10]:
-                cd   = c.get("data", {})
-                cid  = cd.get("id", "")
+                cd    = c.get("data", {})
+                cid   = cd.get("id", "")
                 cbody = cd.get("body", "")
                 if not cid or not cbody or cbody in ["[deleted]","[removed]"] or cid in existing_ids:
                     continue
@@ -105,15 +109,14 @@ for posts, category in raw_results:
                 })
                 existing_ids.add(cid)
         except Exception as e:
-            print(f"  Comment fetch error {pid}: {e}")
+            print(f"  Comment error {pid}: {e}")
 
-print(f"New entries: {len(new_entries)} "
+print(f"New: {len(new_entries)} "
       f"(posts:{sum(1 for e in new_entries if e['type']=='post')}, "
       f"comments:{sum(1 for e in new_entries if e['type']=='comment')})")
 
 # ── STEP 4：AI 摘要（Sonnet）────────────────────────
 print("=== STEP 4: Generate AI summary ===")
-import anthropic
 
 def fmt(entries):
     items = [f"[{e['type']}] r/{e['subreddit']} score:{e['score']}\n{e['title']}\n{e['body'][:300]}"
@@ -152,7 +155,7 @@ else:
 - 可能風險或代價
 - 建議的第一步行動
 
-沒有資料的分類直接跳過。報告可以長，重點是實質洞察加上用戶原聲。直接輸出報告內容，不要加前言。
+沒有資料的分類直接跳過。報告可以長，重點是實質洞察加上用戶原聲。直接輸出報告，不要加前言。
 
 === Forest App 討論（{len(forest)}則）===
 {fmt(forest)}
@@ -162,14 +165,14 @@ else:
 {fmt(focus)}"""
 
     try:
-        client = anthropic.Anthropic(api_key=ANTHROPIC_KEY)
-        msg    = client.messages.create(
+        client  = anthropic.Anthropic(api_key=ANTHROPIC_KEY)
+        msg     = client.messages.create(
             model="claude-sonnet-4-6", max_tokens=2000,
             messages=[{"role": "user", "content": prompt}])
         summary = msg.content[0].text
         print("Summary generated ✓")
     except Exception as e:
-        print(f"Sonnet failed: {e}, using fallback summary")
+        print(f"Sonnet failed: {e}, using fallback")
         summary = (f"*今日新增討論（AI 摘要暫時無法使用）*\n\n"
                    f"Forest App：{len(forest)} 則 ／ Opal：{len(opal)} 則 ／ Focus：{len(focus)} 則\n"
                    f"投訴相關：{sum(1 for e in new_entries if e['is_complaint'])} 則\n\n"
@@ -189,12 +192,12 @@ push = requests.put(
 print(f"GitHub push: {push.status_code}")
 
 totals = {
-    "total":          len(all_data),
-    "new_today":      len(new_entries),
-    "forest_app":     sum(1 for c in all_data if c["category"] == "forest_app"),
-    "opal":           sum(1 for c in all_data if c["category"] == "opal"),
-    "focus_community":sum(1 for c in all_data if c["category"] == "focus_community"),
-    "complaints":     sum(1 for c in all_data if c["is_complaint"]),
+    "total":           len(all_data),
+    "new_today":       len(new_entries),
+    "forest_app":      sum(1 for c in all_data if c["category"] == "forest_app"),
+    "opal":            sum(1 for c in all_data if c["category"] == "opal"),
+    "focus_community": sum(1 for c in all_data if c["category"] == "focus_community"),
+    "complaints":      sum(1 for c in all_data if c["is_complaint"]),
 }
 
 # ── STEP 6：發送 Slack 報告 ──────────────────────────

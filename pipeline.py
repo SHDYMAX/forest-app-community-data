@@ -27,16 +27,13 @@ print(f"Loaded {len(existing)} existing entries")
 print("=== STEP 2: Search Reddit via Firecrawl ===")
 
 search_queries = [
-    # Forest App（3 個 query，涵蓋一般討論、專屬版、負面聲音）
-    ('"Forest App" site:reddit.com',                                        "forest_app"),
-    ('site:reddit.com/r/forestapp',                                         "forest_app"),
+    ('"Forest App" site:reddit.com',                                                "forest_app"),
+    ('site:reddit.com/r/forestapp',                                                 "forest_app"),
     ('"Forest App" alternative OR subscription OR AI OR complaint site:reddit.com', "forest_app"),
-    # 三個競品（各 1 個精準 query）
-    ('"Opal" app screen time focus site:reddit.com',                        "opal"),
-    ('"Study Bunny" app focus site:reddit.com',                             "study_bunny"),
-    ('"Focus Friend" app site:reddit.com',                                  "focus_friend"),
-    # Focus 社群需求
-    ('body doubling accountability focus app site:reddit.com',              "focus_community"),
+    ('"Opal" app screen time focus site:reddit.com',                                "opal"),
+    ('"Study Bunny" app focus site:reddit.com',                                     "study_bunny"),
+    ('"Focus Friend" app site:reddit.com',                                          "focus_friend"),
+    ('body doubling accountability focus app site:reddit.com',                      "focus_community"),
 ]
 
 def extract_subreddit(url):
@@ -65,8 +62,8 @@ for query, category in search_queries:
         print(f"  Failed '{query[:40]}': {e}")
     time.sleep(1.5)
 
-# ── STEP 3：解析、過濾、去重（不再單獨爬留言）────────
-print("=== STEP 3: Parse + deduplicate ===")
+# ── STEP 3：解析文章 + 爬熱門文章留言 ───────────────
+print("=== STEP 3: Parse posts + scrape comments for top 5 ===")
 new_entries = []
 
 FILTERS = {
@@ -74,7 +71,7 @@ FILTERS = {
     "opal":           ["opal"],
     "study_bunny":    ["study bunny"],
     "focus_friend":   ["focus friend"],
-    "focus_community":[], # 不過濾，靠 query 本身的精準度
+    "focus_community":[],
 }
 
 for result, category in all_results:
@@ -98,12 +95,41 @@ for result, category in all_results:
         "title": title, "body": desc[:400],
         "author": "", "score": 0, "url": url,
         "is_complaint": bool(flagged), "complaint_keywords": flagged,
+        "comments": [],  # 留言會在下面填入
     })
     existing_ids.add(pid)
 
-print(f"New entries: {len(new_entries)}")
+# 只爬前 5 篇新文章的留言（省 Firecrawl 額度）
+posts_to_scrape = [e for e in new_entries if e["type"] == "post"][:5]
+print(f"Scraping comments for {len(posts_to_scrape)} posts...")
 
-# ── STEP 4：AI 摘要（Sonnet，只看最近 3 天）─────────
+for post in posts_to_scrape:
+    try:
+        time.sleep(2)
+        r = requests.post(
+            "https://api.firecrawl.dev/v1/scrape",
+            headers=FC_HEADERS,
+            json={"url": post["url"], "formats": ["markdown"], "onlyMainContent": True},
+            timeout=30)
+        md = r.json().get("data", {}).get("markdown", "")
+
+        # 從 markdown 提取有意義的段落作為留言
+        paragraphs = [p.strip() for p in re.split(r'\n{2,}', md)
+                      if 30 < len(p.strip()) < 600
+                      and not p.strip().startswith("#")
+                      and not p.strip().startswith("http")
+                      and not p.strip().startswith("![")]
+
+        # 去掉前幾段（通常是原文，不是留言）
+        comments_raw = paragraphs[3:18]
+        post["comments"] = comments_raw
+        print(f"  r/{post['subreddit']}: {len(comments_raw)} comment paragraphs")
+    except Exception as e:
+        print(f"  Scrape error {post['id']}: {e}")
+
+print(f"New posts: {len(new_entries)}")
+
+# ── STEP 4：AI 摘要（Sonnet，留言分群分析）──────────
 print("=== STEP 4: Generate AI summary ===")
 
 recent       = [e for e in new_entries if e["date_collected"] >= CUTOFF]
@@ -112,60 +138,73 @@ opal         = [e for e in recent if e["category"] == "opal"]
 study_bunny  = [e for e in recent if e["category"] == "study_bunny"]
 focus_friend = [e for e in recent if e["category"] == "focus_friend"]
 focus        = [e for e in recent if e["category"] == "focus_community"]
-print(f"Recent 3d: forest={len(forest)}, opal={len(opal)}, study_bunny={len(study_bunny)}, focus_friend={len(focus_friend)}, focus={len(focus)}")
 
-def fmt(entries):
-    items = [f"[r/{e['subreddit']}] {e['title']}\n{e['body'][:250]}"
-             for e in entries[:20]]
+def fmt_with_comments(entries):
+    """格式化文章 + 留言，讓 AI 能做分群分析"""
+    items = []
+    for e in entries[:15]:
+        block = f"【文章】r/{e['subreddit']}\n標題：{e['title']}\n摘要：{e['body'][:200]}"
+        if e.get("comments"):
+            comments_text = "\n".join([f"  - {c[:200]}" for c in e["comments"][:10]])
+            block += f"\n留言：\n{comments_text}"
+        items.append(block)
+    return "\n\n═══\n\n".join(items) if items else "（本期無資料）"
+
+def fmt_simple(entries):
+    items = [f"[r/{e['subreddit']}] {e['title']}\n{e['body'][:200]}"
+             for e in entries[:10]]
     return "\n\n---\n\n".join(items) if items else "（本期無資料）"
 
 if not recent:
     summary = "本日 Reddit 無新增相關討論。"
 else:
-    prompt = f"""你是 Forest App 的產品策略顧問。以下是最近 3 天從 Reddit 收集到的用戶討論，包含 Forest App 本身以及三個競品（Opal、Study Bunny、Focus Friend）。
+    prompt = f"""你是 Forest App 的產品策略顧問。以下是最近 3 天從 Reddit 收集到的用戶討論，包含原始貼文與留言。
 
-請產出一份結構清晰的每日情報報告，分為四個部分：
+請產出一份每日情報報告，分為四個部分：
 
 ---
 
 *📢 今日用戶在討論什麼*
 
-用 3-5 個條列說明最近 Reddit 社群的主要討論主題。
-格式：**主題名稱** — 討論內容一句話、情緒傾向（正面/負面/中性）、涉及幾則。
-每個主題附用戶原話 1 句（英文保留，加引號）。
-目標：讓產品團隊 30 秒內看懂社群狀態。
+針對每個主要討論主題，用以下格式呈現（不要只寫一句話，要讓人感覺像看過討論串）：
+
+**📌 主題名稱**
+
+主流聲音（約 N 則類似留言）
+> "最能代表這個聲音的用戶原話"
+→ 這群人的核心訴求或情緒是什麼？用 1-2 句說明。
+
+不同觀點（若有，N 則）
+> "代表不同立場的原話"
+→ 這個聲音和主流有什麼張力？
+
+值得注意的獨特聲音（若有）
+> "少數但有趣的觀點"
+→ 為什麼值得注意？
+
+討論走向：這個討論目前是在升溫、降溫、還是僵持？
+
+每個主題之間空一行。目標：讓人不用去讀原討論串，就能理解討論的全貌與溫度。
 
 ---
 
 *⚔️ 競品雷達*
 
-針對以下三個競品，各自分析：
+針對有被討論到的競品（Opal、Study Bunny、Focus Friend），各自分析：
 
-**Opal App**
-- 用戶在討論什麼？對它的評價如何？
-- 與 Forest 相比，用戶覺得它哪裡更好或更差？
+**競品名稱**
+- 用戶為什麼提到它？在什麼情境下被拿來和 Forest 比較？
 - 用戶原話 1 句（英文保留，加引號）
-- So what / Now what：Forest 應該如何回應？
+- So what：對 Forest 的意義？
+- Now what：建議的具體回應？
 
-**Study Bunny**
-- 用戶在討論什麼？對它的評價如何？
-- 與 Forest 相比，用戶覺得它哪裡更好或更差？
-- 用戶原話 1 句（英文保留，加引號）
-- So what / Now what：Forest 應該如何回應？
-
-**Focus Friend**
-- 用戶在討論什麼？對它的評價如何？
-- 與 Forest 相比，用戶覺得它哪裡更好或更差？
-- 用戶原話 1 句（英文保留，加引號）
-- So what / Now what：Forest 應該如何回應？
-
-沒有被討論到的競品直接跳過。
+沒有被討論到的競品跳過。
 
 ---
 
 *🚨 需要注意的事項*
 
-3-5 個值得產品團隊關注的訊號，優先度由高到低：
+3-5 個訊號，優先度由高到低：
 **[HIGH/MED/LOW]** 標題
 - 狀況：幾則討論、情緒強度？
 - 用戶原話 1 句（英文保留，加引號）
@@ -175,7 +214,7 @@ else:
 
 *🧭 策略建議*
 
-3 個具體策略行動：
+3 個具體行動：
 **建議標題**
 - 機會點 + 用戶原話 1 句（英文保留，加引號）
 - So what：為什麼現在重要？
@@ -186,25 +225,25 @@ else:
 
 直接輸出報告，不要加前言或結語。
 
-=== Forest App（{len(forest)}則）===
-{fmt(forest)}
+=== Forest App（{len(forest)}則，含留言）===
+{fmt_with_comments(forest)}
 
 === Opal App（{len(opal)}則）===
-{fmt(opal)}
+{fmt_simple(opal)}
 
 === Study Bunny（{len(study_bunny)}則）===
-{fmt(study_bunny)}
+{fmt_simple(study_bunny)}
 
 === Focus Friend（{len(focus_friend)}則）===
-{fmt(focus_friend)}
+{fmt_simple(focus_friend)}
 
 === Focus 社群（{len(focus)}則）===
-{fmt(focus)}"""
+{fmt_simple(focus)}"""
 
     try:
         client  = anthropic.Anthropic(api_key=ANTHROPIC_KEY)
         msg     = client.messages.create(
-            model="claude-sonnet-4-6", max_tokens=2500,
+            model="claude-sonnet-4-6", max_tokens=3000,
             messages=[{"role": "user", "content": prompt}])
         summary = msg.content[0].text
         print("Summary generated ✓")
@@ -217,9 +256,14 @@ else:
                    + "\n".join(f"• r/{e['subreddit']}: {e['title'][:80]}"
                                for e in recent[:5]))
 
-# ── STEP 5：存回 GitHub ──────────────────────────────
+# ── STEP 5：存回 GitHub（不存 comments 欄位，省空間）
 print("=== STEP 5: Save to GitHub ===")
-all_data    = existing + new_entries
+
+# 存檔前移除 comments 欄位（那是暫時的，不需要永久保存）
+entries_to_save = [{k: v for k, v in e.items() if k != "comments"}
+                   for e in new_entries]
+
+all_data    = existing + entries_to_save
 content_b64 = base64.b64encode(
     json.dumps(all_data, ensure_ascii=False, indent=2).encode()).decode()
 push = requests.put(

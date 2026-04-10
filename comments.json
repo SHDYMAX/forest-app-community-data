@@ -48,5 +48,35 @@
       "expensive",
       "subscription"
     ]
+  },
+  {
+    "id": "test1",
+    "type": "post",
+    "date_collected": "2026-04-10",
+    "category": "forest_app",
+    "subreddit": "productivity",
+    "title": "Forest App helped me focus better",
+    "body": "I've been using Forest App for 2 weeks and it's really helped my productivity. The tree metaphor makes me more motivated to stay focused.",
+    "author": "user123",
+    "score": 45,
+    "url": "https://reddit.com/r/productivity/comments/test1",
+    "is_complaint": false,
+    "complaint_keywords": []
+  },
+  {
+    "id": "test2",
+    "type": "post",
+    "date_collected": "2026-04-10",
+    "category": "forest_app",
+    "subreddit": "getdisciplined",
+    "title": "Forest App broke after update",
+    "body": "After the latest update, the app crashes whenever I try to start a session. Very frustrating, was working fine before.",
+    "author": "frustrated_user",
+    "score": 12,
+    "url": "https://reddit.com/r/getdisciplined/comments/test2",
+    "is_complaint": true,
+    "complaint_keywords": [
+      "crash"
+    ]
   }
 ]

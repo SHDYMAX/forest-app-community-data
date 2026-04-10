@@ -1,5 +1,5 @@
 import os, json, requests, base64, time, anthropic, re
-from datetime import datetime, timezone, date
+from datetime import datetime, timezone, date, timedelta
 
 GITHUB_TOKEN  = os.environ["GITHUB_TOKEN"]
 ANTHROPIC_KEY = os.environ["ANTHROPIC_API_KEY"]
@@ -12,6 +12,7 @@ COMPLAINT_KW  = ["bug","broken","crash","doesn't work","not working","glitch",
                   "issue","problem","refund","expensive","hate","annoying",
                   "disappointed","freeze","stuck","won't open","lost data","deleted"]
 TODAY         = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+CUTOFF        = (datetime.now(timezone.utc) - timedelta(days=3)).strftime("%Y-%m-%d")
 
 # ── STEP 1：讀取歷史資料 ──────────────────────────────
 print("=== STEP 1: Load existing data ===")
@@ -30,10 +31,13 @@ search_queries = [
     ('"Forest App" productivity site:reddit.com',        "forest_app"),
     ('site:reddit.com/r/forestapp',                      "forest_app"),
     ('"Forest App" study site:reddit.com',               "forest_app"),
+    ('"Forest App" alternative site:reddit.com',         "forest_app"),
     ('Opal app screen time blocker site:reddit.com',     "opal"),
     ('Opal app focus site:reddit.com',                   "opal"),
     ('focus friend app virtual study site:reddit.com',   "focus_community"),
     ('body doubling focus app site:reddit.com',          "focus_community"),
+    ('Study Bunny app site:reddit.com',                  "focus_community"),
+    ('Studychick app focus site:reddit.com',             "focus_community"),
 ]
 
 def extract_subreddit(url):
@@ -54,8 +58,8 @@ for query, category in search_queries:
             timeout=30)
         items = r.json().get("data", [])
         reddit_items = [i for i in items
-                        if "reddit.com/r/" in i.get("url","")
-                        and "/comments/" in i.get("url","")]
+                        if "reddit.com/r/" in i.get("url", "")
+                        and "/comments/" in i.get("url", "")]
         all_results.extend([(i, category) for i in reddit_items])
         print(f"  [{category}] '{query[:50]}': {len(reddit_items)} posts")
     except Exception as e:
@@ -77,7 +81,7 @@ for result, category in all_results:
 
     text = (title + " " + desc).lower()
     if category == "forest_app" and not any(k in text for k in
-        ["forest app","forestapp","forest","focus timer","plant tree","pomodoro"]):
+        ["forest app", "forestapp", "forest", "focus timer", "plant tree", "pomodoro"]):
         continue
     if category == "opal" and "opal" not in text:
         continue
@@ -92,7 +96,7 @@ for result, category in all_results:
     new_entries.append(entry)
     existing_ids.add(pid)
 
-# 抓留言（只抓前 8 篇省 Firecrawl 額度）
+# 抓留言（前 8 篇）
 for post in [e for e in new_entries if e["type"] == "post"][:8]:
     try:
         time.sleep(2)
@@ -102,13 +106,10 @@ for post in [e for e in new_entries if e["type"] == "post"][:8]:
             json={"url": post["url"], "formats": ["markdown"], "onlyMainContent": True},
             timeout=30)
         md = r.json().get("data", {}).get("markdown", "")
-
-        # 從 markdown 提取評論段落
         paragraphs = [p.strip() for p in re.split(r'\n{2,}', md)
                       if 40 < len(p.strip()) < 500
                       and not p.strip().startswith("#")
                       and not p.strip().startswith("http")][:10]
-
         for i, para in enumerate(paragraphs):
             cid = f"{post['id']}_c{i}"
             if cid in existing_ids:
@@ -123,7 +124,7 @@ for post in [e for e in new_entries if e["type"] == "post"][:8]:
                 "parent_post_id": post["id"],
             })
             existing_ids.add(cid)
-        print(f"  Scraped {len(paragraphs)} comments: {post['subreddit']}/{post['id']}")
+        print(f"  Scraped {len(paragraphs)} comments: r/{post['subreddit']}")
     except Exception as e:
         print(f"  Scrape error {post['id']}: {e}")
 
@@ -134,48 +135,89 @@ print(f"New: {len(new_entries)} "
 # ── STEP 4：AI 摘要（Sonnet）────────────────────────
 print("=== STEP 4: Generate AI summary ===")
 
+# 只取最近 3 天的資料送給 AI 分析
+recent = [e for e in new_entries if e["date_collected"] >= CUTOFF]
+forest = [e for e in recent if e["category"] == "forest_app"]
+opal   = [e for e in recent if e["category"] == "opal"]
+focus  = [e for e in recent if e["category"] == "focus_community"]
+print(f"Recent (3d): forest={len(forest)}, opal={len(opal)}, focus={len(focus)}")
+
 def fmt(entries):
     items = [f"[{e['type']}] r/{e['subreddit']}\n{e['title']}\n{e['body'][:300]}"
              for e in entries[:30]]
     return "\n\n---\n\n".join(items) if items else "（無資料）"
 
-forest = [e for e in new_entries if e["category"] == "forest_app"]
-opal   = [e for e in new_entries if e["category"] == "opal"]
-focus  = [e for e in new_entries if e["category"] == "focus_community"]
-
-if not new_entries:
+if not recent:
     summary = "本日 Reddit 無新增相關討論。"
 else:
-    prompt = f"""你是 Forest App 的產品策略顧問。以下是今日從 Reddit 收集到的用戶討論（包含原始貼文與留言）。
+    prompt = f"""你是 Forest App 的產品策略顧問。以下是最近 3 天從 Reddit 收集到的用戶討論。
+請產出一份結構清晰的每日情報報告，分為四個部分：
 
-請產出一份深度分析報告，包含以下四個部分。每個論點都必須附上最能代表該觀點的用戶原話 1-2 句（保留英文原文，加引號）：
+---
 
-*🗣️ 多元觀點整理*
-從討論中整理出 3-5 個不同的用戶聲音或立場。每個觀點包含：
-- 是哪類用戶、他們的核心主張、代表性原話 1-2 句（英文保留，加引號）
-- 這個觀點與其他觀點的張力或衝突在哪
+*📢 今日用戶在討論什麼*
 
-*⚔️ 競品與市場定位分析*
-- 用戶如何區分 Forest 和競品？各自代表什麼？
-- 有哪些用戶正在考慮離開 Forest？原因是什麼？
-- Forest 目前的差異化優勢還站得住腳嗎？
-每個論點附上用戶原話 1-2 句（英文保留，加引號）。
+用 3-5 個條列，說明今天 Reddit 社群的主要討論主題。
+每個條列格式：**主題名稱** — 一句話說明用戶在討論什麼、情緒傾向如何（正面/負面/中性）、大約幾則討論涉及這個主題。
+附上每個主題最能代表的用戶原話 1 句（英文保留，加引號）。
 
-*🚨 風險識別*
-**短期風險（需立即關注）**：2-3 個正在發酵的問題 + 用戶原話 1 句
-**長期策略風險**：2-3 個趨勢性弱點 + 用戶原話 1 句
+目標：讓產品團隊在 30 秒內看懂今天社群的狀態。
 
-*🧭 下一步策略思考*
-3 個策略方向，每個包含：
-- 機會點 + 用戶原話 1 句（英文保留，加引號）
-- 可能風險或代價
-- 建議的第一步行動
+---
 
-沒有資料的分類直接跳過。報告可以長，重點是實質洞察加上用戶原聲。直接輸出報告，不要加前言。
+*⚔️ 競品雷達*
 
-=== Forest App 討論（{len(forest)}則）===
+根據討論內容，分析被提及的競品，用以下四個類別分類：
+
+**直接競品**（同樣的用戶、同樣的需求）
+列出被提及的直接競品，每個說明：
+- 用戶為什麼考慮它？Forest 哪裡輸給它？
+- 用戶原話 1 句（英文保留，加引號）
+- So what：這對 Forest 意味著什麼？
+- Now what：建議的回應動作是什麼？
+
+**間接競品**（同樣的用戶、不同的解法）
+例如：手機內建螢幕時間、番茄鐘 App 等
+
+**替代品**（不同產品、達到同樣目的）
+例如：紙本計時器、自製系統、習慣打卡 App
+
+**未來潛在威脅**（目前不構成競爭，但值得追蹤）
+例如：AI 整合的生產力工具、社群讀書 App
+
+每個類別只列有被討論到的項目，沒有就跳過。
+
+---
+
+*🚨 需要注意的事項*
+
+列出 3-5 個今日討論中值得產品團隊特別關注的訊號，優先度由高到低排列。
+每項格式：
+**[HIGH/MED/LOW]** 標題
+- 狀況：發生了什麼？幾則討論涉及？用戶情緒強度？
+- 用戶原話 1 句（英文保留，加引號）
+- 如果不處理，可能的後果是什麼？
+
+---
+
+*🧭 策略建議*
+
+根據以上三個部分，提出 3 個具體的策略行動建議。
+每個建議格式：
+**建議標題**
+- 機會點：從哪個討論訊號看出來的？
+- So what：為什麼現在重要？
+- Now what：第一步具體行動是什麼（越具體越好）？
+- 風險：如果採取這個行動，可能的代價或副作用？
+- 用戶原話 1 句（英文保留，加引號）
+
+---
+
+沒有資料的分類直接跳過。直接輸出報告，不要加前言或結語。
+
+=== Forest App 討論（{len(forest)}則，含文章與留言）===
 {fmt(forest)}
-=== Opal 競品討論（{len(opal)}則）===
+=== 競品相關討論（{len(opal)}則）===
 {fmt(opal)}
 === Focus 社群討論（{len(focus)}則）===
 {fmt(focus)}"""
@@ -183,17 +225,17 @@ else:
     try:
         client  = anthropic.Anthropic(api_key=ANTHROPIC_KEY)
         msg     = client.messages.create(
-            model="claude-sonnet-4-6", max_tokens=2000,
+            model="claude-sonnet-4-6", max_tokens=2500,
             messages=[{"role": "user", "content": prompt}])
         summary = msg.content[0].text
         print("Summary generated ✓")
     except Exception as e:
         print(f"Sonnet failed: {e}, using fallback")
         summary = (f"*今日新增討論（AI 摘要暫時無法使用）*\n\n"
-                   f"Forest App：{len(forest)} 則 ／ Opal：{len(opal)} 則 ／ Focus：{len(focus)} 則\n"
-                   f"投訴相關：{sum(1 for e in new_entries if e['is_complaint'])} 則\n\n"
+                   f"Forest App：{len(forest)} 則 ／ 競品：{len(opal)} 則 ／ Focus：{len(focus)} 則\n"
+                   f"投訴相關：{sum(1 for e in recent if e['is_complaint'])} 則\n\n"
                    + "\n".join(f"• [{e['type']}] r/{e['subreddit']}: {e['title'][:80]}"
-                               for e in new_entries[:5]))
+                               for e in recent[:5]))
 
 # ── STEP 5：存回 GitHub ──────────────────────────────
 print("=== STEP 5: Save to GitHub ===")
@@ -219,7 +261,7 @@ totals = {
 # ── STEP 6：發送 Slack 報告 ──────────────────────────
 print("=== STEP 6: Send Slack report ===")
 msg = f"""🌲 *Forest App Daily Community Report*
-📅 {date.today()} | 今日新增 {totals['new_today']} 則 | 累計 {totals['total']} 則（Forest {totals['forest_app']} / Opal {totals['opal']} / Focus {totals['focus_community']} / 投訴紀錄 {totals['complaints']}）
+📅 {date.today()} | 今日新增 {totals['new_today']} 則 | 累計 {totals['total']} 則（Forest {totals['forest_app']} / 競品 {totals['opal']} / Focus {totals['focus_community']} / 投訴 {totals['complaints']}）
 ━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 {summary}

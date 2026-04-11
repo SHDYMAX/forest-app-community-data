@@ -44,7 +44,29 @@ def extract_post_id(url):
     m = re.search(r'/comments/([a-z0-9]+)/', url)
     return m.group(1) if m else re.sub(r'[^a-z0-9]', '', url)[-10:]
 
+# ── STEP 2A：直接爬 r/forestapp（確保不漏新文章）────
+print("=== STEP 2A: Direct scrape r/forestapp ===")
 all_results = []
+for reddit_url in ["https://www.reddit.com/r/forestapp/new/", "https://www.reddit.com/r/forestapp/hot/"]:
+    try:
+        r = requests.post(
+            "https://api.firecrawl.dev/v1/scrape",
+            headers=FC_HEADERS,
+            json={"url": reddit_url, "formats": ["markdown"], "onlyMainContent": True},
+            timeout=30)
+        md = r.json().get("data", {}).get("markdown", "")
+        links = re.findall(
+            r'\[([^\]]{5,200})\]\((https://www\.reddit\.com/r/forestapp/comments/[^\)]+)\)',
+            md)
+        for title, url in links:
+            all_results.append(({"url": url, "title": title, "description": ""}, "forest_app"))
+        print(f"  {reddit_url.split('/')[-2]}: {len(links)} posts")
+        time.sleep(1.5)
+    except Exception as e:
+        print(f"  Failed {reddit_url}: {e}")
+
+# ── STEP 2B：Firecrawl 搜尋（抓其他 subreddit）────────
+print("=== STEP 2B: Search other subreddits via Firecrawl ===")
 for query, category in search_queries:
     try:
         r = requests.post(
@@ -132,7 +154,7 @@ print(f"New posts: {len(new_entries)}")
 # ── STEP 4：AI 摘要（Sonnet，留言分群分析）──────────
 print("=== STEP 4: Generate AI summary ===")
 
-recent       = [e for e in new_entries if e["date_collected"] >= CUTOFF]
+recent       = [e for e in (existing + new_entries) if e["date_collected"] >= CUTOFF]
 forest       = [e for e in recent if e["category"] == "forest_app"]
 opal         = [e for e in recent if e["category"] == "opal"]
 study_bunny  = [e for e in recent if e["category"] == "study_bunny"]
@@ -156,9 +178,10 @@ def fmt_simple(entries):
     return "\n\n---\n\n".join(items) if items else "（本期無資料）"
 
 if not recent:
-    summary = "本日 Reddit 無新增相關討論。"
+    summary = "過去 3 天 Reddit 無相關討論資料。"
 else:
-    prompt = f"""你是 Forest App 的產品策略顧問。以下是最近 3 天從 Reddit 收集到的用戶討論，包含原始貼文與留言。
+    new_today_note = f"（今日新增 {len(new_entries)} 則）" if new_entries else "（今日無新增，以下為近 3 天累積資料）"
+    prompt = f"""你是 Forest App 的產品策略顧問。以下是最近 3 天從 Reddit 收集到的用戶討論 {new_today_note}，包含原始貼文與留言。
 
 請產出一份每日情報報告，分為四個部分：
 
@@ -301,3 +324,4 @@ r = requests.post(SLACK_WEBHOOK, json={"text": msg})
 print(f"Slack: {r.status_code}")
 if r.status_code == 200:
     print("DONE — Report sent successfully ✓")
+

@@ -84,7 +84,11 @@ for query, category in search_queries:
         reddit_items = [i for i in items
                         if "reddit.com/r/" in i.get("url", "")
                         and "/comments/" in i.get("url", "")]
-        all_results.extend([(i, category) for i in reddit_items])
+        for i in reddit_items:
+            # r/forestapp 的文章不需要關鍵字驗證
+            if "reddit.com/r/forestapp/" in i.get("url", ""):
+                i["trusted_source"] = True
+            all_results.append((i, category))
         print(f"  [{category}] {len(reddit_items)} posts")
     except Exception as e:
         print(f"  Failed '{query[:40]}': {e}")

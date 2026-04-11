@@ -205,7 +205,21 @@ else:
 
 重要格式規則：每篇文章資料都附有 URL。當你在報告中提到某篇文章時，請用 Slack 連結格式 <URL|文章標題> 將標題變成可點擊連結。例如：<https://reddit.com/r/forestapp/comments/abc123/|Unpopular opinion: I LOVE the pause feature>
 
-請產出一份每日情報報告，分為四個部分：
+請產出一份每日情報報告，分為五個部分：
+
+---
+
+*🆕 新功能用戶回饋*
+
+專門報告用戶對 Forest 近期新功能（如暫停功能、新介面、新訂閱制等）的反應。即使是正面回饋也要納入。
+
+格式：
+**功能名稱**
+- 用戶原話 1-2 句（英文保留，加引號，附 Slack 連結）
+- 主流反應：正面 / 負面 / 混合？比例大概是？
+- 值得注意的聲音（若有）
+
+若本期無相關討論，寫「本期無新功能討論」。
 
 ---
 
@@ -346,6 +360,7 @@ r = requests.post(SLACK_WEBHOOK, json={"text": msg})
 print(f"Slack: {r.status_code}")
 if r.status_code == 200:
     print("DONE — Report sent successfully ✓")
+
 
 
 

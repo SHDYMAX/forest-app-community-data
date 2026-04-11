@@ -317,6 +317,9 @@ Forest {totals['forest_app']} / Opal {totals['opal']} / Study Bunny {totals['stu
 {summary}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━
+📎 *近期討論連結*
+{chr(10).join(f"• <{e['url']}|{e['title'][:60]}{'...' if len(e['title'])>60 else ''}> (r/{e['subreddit']})" for e in sorted(recent, key=lambda x: x['date_collected'], reverse=True)[:15] if e.get('url'))}
+━━━━━━━━━━━━━━━━━━━━━━━━━━
 _由 Forest App Community Intelligence Agent 自動生成_
 _資料庫：github.com/SHDYMAX/forest-app-community-data_"""
 
@@ -324,4 +327,5 @@ r = requests.post(SLACK_WEBHOOK, json={"text": msg})
 print(f"Slack: {r.status_code}")
 if r.status_code == 200:
     print("DONE — Report sent successfully ✓")
+
 

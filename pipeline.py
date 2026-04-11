@@ -197,13 +197,20 @@ def fmt_simple(entries):
              for e in entries[:10]]
     return "\n\n---\n\n".join(items) if items else "（本期無資料）"
 
-if not recent:
+    # 今日新增 vs 近期背景（用於 prompt 分層）
+    new_forest   = [e for e in new_entries if e["category"] == "forest_app"]
+    new_others   = [e for e in new_entries if e["category"] != "forest_app"]
+    bg_forest    = [e for e in existing if e["category"] == "forest_app"
+                    and e["date_collected"] >= CUTOFF][:10]
+
+if not recent and not new_entries:
     summary = "過去 3 天 Reddit 無相關討論資料。"
 else:
-    new_today_note = f"（今日新增 {len(new_entries)} 則）" if new_entries else "（今日無新增，以下為近 3 天累積資料）"
-    prompt = f"""你是 Forest App 的產品策略顧問。以下是最近 3 天從 Reddit 收集到的用戶討論 {new_today_note}，包含原始貼文與留言。
+    prompt = f"""你是 Forest App 的產品策略顧問。
 
 重要格式規則：每篇文章資料都附有 URL。當你在報告中提到某篇文章時，請用 Slack 連結格式 <URL|文章標題> 將標題變成可點擊連結。例如：<https://reddit.com/r/forestapp/comments/abc123/|Unpopular opinion: I LOVE the pause feature>
+
+**核心原則：今日新增的文章全部都要出現在報告中，不能遺漏或取捨。** 舊的背景資料只是補充脈絡用。
 
 請產出一份每日情報報告，分為五個部分：
 
@@ -284,20 +291,14 @@ else:
 
 直接輸出報告，不要加前言或結語。
 
-=== Forest App（{len(forest)}則，含留言）===
-{fmt_with_comments(forest)}
+━━━ 今日新抓到的 r/forestapp 文章（{len(new_forest)} 則，全部都要報）━━━
+{fmt_with_comments(new_forest) if new_forest else "（今日無新增）"}
 
-=== Opal App（{len(opal)}則）===
-{fmt_simple(opal)}
+━━━ 今日其他 subreddit 新文章（{len(new_others)} 則）━━━
+{fmt_simple(new_others) if new_others else "（今日無新增）"}
 
-=== Study Bunny（{len(study_bunny)}則）===
-{fmt_simple(study_bunny)}
-
-=== Focus Friend（{len(focus_friend)}則）===
-{fmt_simple(focus_friend)}
-
-=== Focus 社群（{len(focus)}則）===
-{fmt_simple(focus)}"""
+━━━ 近 3 天舊資料（背景參考，{len(bg_forest)} 則）━━━
+{fmt_simple(bg_forest) if bg_forest else "（無）"}"""
 
     try:
         client  = anthropic.Anthropic(api_key=ANTHROPIC_KEY)

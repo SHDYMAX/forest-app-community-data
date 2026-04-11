@@ -44,29 +44,38 @@ def extract_post_id(url):
     m = re.search(r'/comments/([a-z0-9]+)/', url)
     return m.group(1) if m else re.sub(r'[^a-z0-9]', '', url)[-10:]
 
-# ── STEP 2A：用 Firecrawl 爬 old.reddit.com/r/forestapp ──
-print("=== STEP 2A: Scrape r/forestapp via Firecrawl ===")
+# ── STEP 2A：用 Firecrawl 爬 redlib（Reddit 替代前端）──
+print("=== STEP 2A: Scrape r/forestapp via Redlib ===")
 all_results = []
 for listing in ["new", "hot"]:
     try:
         r = requests.post(
             "https://api.firecrawl.dev/v1/scrape",
             headers=FC_HEADERS,
-            json={"url": f"https://old.reddit.com/r/forestapp/{listing}/",
+            json={"url": f"https://redlib.catsarch.com/r/forestapp/{listing}",
                   "formats": ["markdown"], "onlyMainContent": True},
             timeout=30)
         md = r.json().get("data", {}).get("markdown", "")
-        # old.reddit 的連結格式：[標題](https://old.reddit.com/r/forestapp/comments/...)
-        links = re.findall(
-            r'\[([^\]]{5,200})\]\((https://(?:old\.)?reddit\.com/r/forestapp/comments/[^\)"\s]+)\)',
-            md)
-        for title, url in links:
-            # 轉成 www.reddit.com 格式
-            url = url.replace("old.reddit.com", "www.reddit.com")
+        # 按分隔線切段，每段是一篇文章
+        sections = re.split(r'\n\* \* \*\n', md)
+        count = 0
+        for section in sections:
+            m = re.search(
+                r'\[([^\]]+)\]\((https://redlib\.catsarch\.com/r/forestapp/comments/([a-z0-9]+)/[^\)]*)\)',
+                section)
+            if not m:
+                continue
+            title, redlib_url, post_id = m.group(1), m.group(2), m.group(3)
+            reddit_url = redlib_url.replace("redlib.catsarch.com", "www.reddit.com")
+            # 提取正文（去掉連結標記後的文字）
+            body = re.sub(r'\[[^\]]*\]\([^\)]*\)', '', section)
+            body = re.sub(r'[#\*\n]+', ' ', body).strip()[:400]
             all_results.append((
-                {"url": url, "title": title, "description": "", "trusted_source": True},
+                {"url": reddit_url, "title": title, "description": body,
+                 "trusted_source": True},
                 "forest_app"))
-        print(f"  {listing}: {len(links)} posts")
+            count += 1
+        print(f"  {listing}: {count} posts")
         time.sleep(2)
     except Exception as e:
         print(f"  Failed {listing}: {e}")

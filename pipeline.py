@@ -60,7 +60,8 @@ for listing in ["new", "hot"]:
             all_results.append((
                 {"url": url, "title": d["title"],
                  "description": d.get("selftext", "")[:400],
-                 "score": d.get("score", 0)},
+                 "score": d.get("score", 0),
+                 "trusted_source": True},   # 直接從 r/forestapp 抓，不需關鍵字驗證
                 "forest_app"))
         print(f"  {listing}: {len(posts)} posts")
         time.sleep(1)
@@ -108,9 +109,10 @@ for result, category in all_results:
         continue
 
     text = (title + " " + desc).lower()
-    keywords = FILTERS.get(category, [])
-    if keywords and not any(k in text for k in keywords):
-        continue
+    if not result.get("trusted_source"):  # 直接從 subreddit 抓的不需過濾
+        keywords = FILTERS.get(category, [])
+        if keywords and not any(k in text for k in keywords):
+            continue
 
     flagged = [k for k in COMPLAINT_KW if k in text]
     new_entries.append({
@@ -328,6 +330,7 @@ r = requests.post(SLACK_WEBHOOK, json={"text": msg})
 print(f"Slack: {r.status_code}")
 if r.status_code == 200:
     print("DONE — Report sent successfully ✓")
+
 
 
 

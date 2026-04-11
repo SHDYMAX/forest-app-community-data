@@ -141,10 +141,26 @@ for result, category in all_results:
     })
     existing_ids.add(pid)
 
-# 爬今日所有 forest_app 新文章的留言（用 redlib，Firecrawl 支援）
-posts_to_scrape = [e for e in new_entries
-                   if e["type"] == "post" and e["category"] == "forest_app"]
-print(f"Scraping comments for {len(posts_to_scrape)} posts via Redlib...")
+# 先算出今日要進報告的文章（含資料庫裡已存的），再爬留言
+# 必須在 new_entries 建完後、STEP 4 前做
+all_data_so_far = existing + [{k: v for k, v in e.items() if k != "comments"}
+                              for e in new_entries]
+today_forest_ids = {e["id"] for e in all_data_so_far
+                    if e["category"] == "forest_app" and e["date_collected"] == TODAY}
+
+# 建一個 id -> entry 的 lookup，new_entries 優先（有 comments 欄位）
+entry_lookup = {e["id"]: e for e in existing}
+for e in new_entries:
+    entry_lookup[e["id"]] = e
+
+posts_to_scrape = [entry_lookup[pid] for pid in today_forest_ids
+                   if not entry_lookup[pid].get("comments")]
+# 確保有 comments 欄位
+for e in entry_lookup.values():
+    if "comments" not in e:
+        e["comments"] = []
+
+print(f"Scraping comments for {len(posts_to_scrape)} today's forest posts via Redlib...")
 
 def extract_comments_from_redlib(md):
     """從 redlib markdown 提取留言，用 u/ 作為留言分界"""
@@ -217,13 +233,10 @@ def fmt_simple(entries):
     return "\n\n---\n\n".join(items) if items else "（本期無資料）"
 
 # 今日新增 vs 近期背景（用於 prompt 分層）
-# 「今日」= date_collected 是今天，從所有資料裡撈（包含今天早些時候跑進去的）
-all_data_preview = existing + [{k: v for k, v in e.items() if k != "comments"}
-                               for e in new_entries]
-new_forest = [e for e in all_data_preview if e["category"] == "forest_app"
-              and e["date_collected"] == TODAY]
-new_others = [e for e in all_data_preview if e["category"] != "forest_app"
-              and e["date_collected"] == TODAY]
+# 從 entry_lookup 撈（確保含有留言資料）
+new_forest = [entry_lookup[pid] for pid in today_forest_ids]
+new_others = [e for e in (list(entry_lookup.values()))
+              if e["category"] != "forest_app" and e["date_collected"] == TODAY]
 bg_forest  = [e for e in existing if e["category"] == "forest_app"
               and CUTOFF <= e["date_collected"] < TODAY][:10]
 

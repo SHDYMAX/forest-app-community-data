@@ -197,11 +197,11 @@ def fmt_simple(entries):
              for e in entries[:10]]
     return "\n\n---\n\n".join(items) if items else "（本期無資料）"
 
-    # 今日新增 vs 近期背景（用於 prompt 分層）
-    new_forest   = [e for e in new_entries if e["category"] == "forest_app"]
-    new_others   = [e for e in new_entries if e["category"] != "forest_app"]
-    bg_forest    = [e for e in existing if e["category"] == "forest_app"
-                    and e["date_collected"] >= CUTOFF][:10]
+# 今日新增 vs 近期背景（用於 prompt 分層）
+new_forest = [e for e in new_entries if e["category"] == "forest_app"]
+new_others = [e for e in new_entries if e["category"] != "forest_app"]
+bg_forest  = [e for e in existing if e["category"] == "forest_app"
+              and e["date_collected"] >= CUTOFF][:10]
 
 if not recent and not new_entries:
     summary = "過去 3 天 Reddit 無相關討論資料。"

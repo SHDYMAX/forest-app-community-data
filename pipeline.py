@@ -44,27 +44,30 @@ def extract_post_id(url):
     m = re.search(r'/comments/([a-z0-9]+)/', url)
     return m.group(1) if m else re.sub(r'[^a-z0-9]', '', url)[-10:]
 
-# ── STEP 2A：Reddit JSON API 直接抓 r/forestapp ────────
-print("=== STEP 2A: Reddit JSON API for r/forestapp ===")
+# ── STEP 2A：用 Firecrawl 爬 old.reddit.com/r/forestapp ──
+print("=== STEP 2A: Scrape r/forestapp via Firecrawl ===")
 all_results = []
 for listing in ["new", "hot"]:
     try:
-        r = requests.get(
-            f"https://www.reddit.com/r/forestapp/{listing}.json?limit=25",
-            headers={"User-Agent": "ForestAppBot/1.0"},
-            timeout=15)
-        posts = r.json()["data"]["children"]
-        for p in posts:
-            d = p["data"]
-            url = f"https://reddit.com{d['permalink']}"
+        r = requests.post(
+            "https://api.firecrawl.dev/v1/scrape",
+            headers=FC_HEADERS,
+            json={"url": f"https://old.reddit.com/r/forestapp/{listing}/",
+                  "formats": ["markdown"], "onlyMainContent": True},
+            timeout=30)
+        md = r.json().get("data", {}).get("markdown", "")
+        # old.reddit 的連結格式：[標題](https://old.reddit.com/r/forestapp/comments/...)
+        links = re.findall(
+            r'\[([^\]]{5,200})\]\((https://(?:old\.)?reddit\.com/r/forestapp/comments/[^\)"\s]+)\)',
+            md)
+        for title, url in links:
+            # 轉成 www.reddit.com 格式
+            url = url.replace("old.reddit.com", "www.reddit.com")
             all_results.append((
-                {"url": url, "title": d["title"],
-                 "description": d.get("selftext", "")[:400],
-                 "score": d.get("score", 0),
-                 "trusted_source": True},   # 直接從 r/forestapp 抓，不需關鍵字驗證
+                {"url": url, "title": title, "description": "", "trusted_source": True},
                 "forest_app"))
-        print(f"  {listing}: {len(posts)} posts")
-        time.sleep(1)
+        print(f"  {listing}: {len(links)} posts")
+        time.sleep(2)
     except Exception as e:
         print(f"  Failed {listing}: {e}")
 

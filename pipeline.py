@@ -141,31 +141,50 @@ for result, category in all_results:
     })
     existing_ids.add(pid)
 
-# 只爬前 5 篇新文章的留言（省 Firecrawl 額度）
-posts_to_scrape = [e for e in new_entries if e["type"] == "post"][:5]
-print(f"Scraping comments for {len(posts_to_scrape)} posts...")
+# 爬今日所有 forest_app 新文章的留言（用 redlib，Firecrawl 支援）
+posts_to_scrape = [e for e in new_entries
+                   if e["type"] == "post" and e["category"] == "forest_app"]
+print(f"Scraping comments for {len(posts_to_scrape)} posts via Redlib...")
+
+def extract_comments_from_redlib(md):
+    """從 redlib markdown 提取留言，用 u/ 作為留言分界"""
+    comments = []
+    # 每個留言以 u/username 開頭
+    blocks = re.split(r'\n\[u/', md)
+    for block in blocks[1:]:  # 跳過第一段（原文）
+        # 去掉用戶名那行
+        lines = block.split('\n')
+        # 找到留言內容（跳過用戶名、時間、投票數等短行）
+        body_lines = []
+        for line in lines[1:]:
+            line = line.strip()
+            if not line or line.startswith('>') or len(line) < 10:
+                continue
+            if re.match(r'^\d+$', line):  # 純數字（投票數）跳過
+                continue
+            if line.startswith('[u/') or line.startswith('http'):
+                continue
+            body_lines.append(line)
+            if len('\n'.join(body_lines)) > 400:
+                break
+        text = ' '.join(body_lines).strip()
+        if len(text) > 20:
+            comments.append(text[:400])
+    return comments
 
 for post in posts_to_scrape:
     try:
         time.sleep(2)
+        redlib_url = post["url"].replace("www.reddit.com", "redlib.catsarch.com")
         r = requests.post(
             "https://api.firecrawl.dev/v1/scrape",
             headers=FC_HEADERS,
-            json={"url": post["url"], "formats": ["markdown"], "onlyMainContent": True},
+            json={"url": redlib_url, "formats": ["markdown"], "onlyMainContent": True},
             timeout=30)
         md = r.json().get("data", {}).get("markdown", "")
-
-        # 從 markdown 提取有意義的段落作為留言
-        paragraphs = [p.strip() for p in re.split(r'\n{2,}', md)
-                      if 30 < len(p.strip()) < 600
-                      and not p.strip().startswith("#")
-                      and not p.strip().startswith("http")
-                      and not p.strip().startswith("![")]
-
-        # 去掉前幾段（通常是原文，不是留言）
-        comments_raw = paragraphs[3:18]
+        comments_raw = extract_comments_from_redlib(md)
         post["comments"] = comments_raw
-        print(f"  r/{post['subreddit']}: {len(comments_raw)} comment paragraphs")
+        print(f"  {post['id']}: {len(comments_raw)} comments")
     except Exception as e:
         print(f"  Scrape error {post['id']}: {e}")
 

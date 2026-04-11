@@ -44,26 +44,28 @@ def extract_post_id(url):
     m = re.search(r'/comments/([a-z0-9]+)/', url)
     return m.group(1) if m else re.sub(r'[^a-z0-9]', '', url)[-10:]
 
-# ── STEP 2A：直接爬 r/forestapp（確保不漏新文章）────
-print("=== STEP 2A: Direct scrape r/forestapp ===")
+# ── STEP 2A：Reddit JSON API 直接抓 r/forestapp ────────
+print("=== STEP 2A: Reddit JSON API for r/forestapp ===")
 all_results = []
-for reddit_url in ["https://www.reddit.com/r/forestapp/new/", "https://www.reddit.com/r/forestapp/hot/"]:
+for listing in ["new", "hot"]:
     try:
-        r = requests.post(
-            "https://api.firecrawl.dev/v1/scrape",
-            headers=FC_HEADERS,
-            json={"url": reddit_url, "formats": ["markdown"], "onlyMainContent": True},
-            timeout=30)
-        md = r.json().get("data", {}).get("markdown", "")
-        links = re.findall(
-            r'\[([^\]]{5,200})\]\((https://www\.reddit\.com/r/forestapp/comments/[^\)]+)\)',
-            md)
-        for title, url in links:
-            all_results.append(({"url": url, "title": title, "description": ""}, "forest_app"))
-        print(f"  {reddit_url.split('/')[-2]}: {len(links)} posts")
-        time.sleep(1.5)
+        r = requests.get(
+            f"https://www.reddit.com/r/forestapp/{listing}.json?limit=25",
+            headers={"User-Agent": "ForestAppBot/1.0"},
+            timeout=15)
+        posts = r.json()["data"]["children"]
+        for p in posts:
+            d = p["data"]
+            url = f"https://reddit.com{d['permalink']}"
+            all_results.append((
+                {"url": url, "title": d["title"],
+                 "description": d.get("selftext", "")[:400],
+                 "score": d.get("score", 0)},
+                "forest_app"))
+        print(f"  {listing}: {len(posts)} posts")
+        time.sleep(1)
     except Exception as e:
-        print(f"  Failed {reddit_url}: {e}")
+        print(f"  Failed {listing}: {e}")
 
 # ── STEP 2B：Firecrawl 搜尋（抓其他 subreddit）────────
 print("=== STEP 2B: Search other subreddits via Firecrawl ===")
@@ -162,10 +164,10 @@ focus_friend = [e for e in recent if e["category"] == "focus_friend"]
 focus        = [e for e in recent if e["category"] == "focus_community"]
 
 def fmt_with_comments(entries):
-    """格式化文章 + 留言，讓 AI 能做分群分析"""
+    """格式化文章 + 留言，讓 AI 能做分群分析（含 URL 供行內連結）"""
     items = []
     for e in entries[:15]:
-        block = f"【文章】r/{e['subreddit']}\n標題：{e['title']}\n摘要：{e['body'][:200]}"
+        block = f"【文章】r/{e['subreddit']}\n標題：{e['title']}\nURL：{e['url']}\n摘要：{e['body'][:200]}"
         if e.get("comments"):
             comments_text = "\n".join([f"  - {c[:200]}" for c in e["comments"][:10]])
             block += f"\n留言：\n{comments_text}"
@@ -173,7 +175,7 @@ def fmt_with_comments(entries):
     return "\n\n═══\n\n".join(items) if items else "（本期無資料）"
 
 def fmt_simple(entries):
-    items = [f"[r/{e['subreddit']}] {e['title']}\n{e['body'][:200]}"
+    items = [f"[r/{e['subreddit']}] {e['title']}\nURL：{e['url']}\n{e['body'][:200]}"
              for e in entries[:10]]
     return "\n\n---\n\n".join(items) if items else "（本期無資料）"
 
@@ -182,6 +184,8 @@ if not recent:
 else:
     new_today_note = f"（今日新增 {len(new_entries)} 則）" if new_entries else "（今日無新增，以下為近 3 天累積資料）"
     prompt = f"""你是 Forest App 的產品策略顧問。以下是最近 3 天從 Reddit 收集到的用戶討論 {new_today_note}，包含原始貼文與留言。
+
+重要格式規則：每篇文章資料都附有 URL。當你在報告中提到某篇文章時，請用 Slack 連結格式 <URL|文章標題> 將標題變成可點擊連結。例如：<https://reddit.com/r/forestapp/comments/abc123/|Unpopular opinion: I LOVE the pause feature>
 
 請產出一份每日情報報告，分為四個部分：
 
@@ -317,9 +321,6 @@ Forest {totals['forest_app']} / Opal {totals['opal']} / Study Bunny {totals['stu
 {summary}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━
-📎 *近期討論連結*
-{chr(10).join(f"• <{e['url']}|{e['title'][:60]}{'...' if len(e['title'])>60 else ''}> (r/{e['subreddit']})" for e in sorted(recent, key=lambda x: x['date_collected'], reverse=True)[:15] if e.get('url'))}
-━━━━━━━━━━━━━━━━━━━━━━━━━━
 _由 Forest App Community Intelligence Agent 自動生成_
 _資料庫：github.com/SHDYMAX/forest-app-community-data_"""
 
@@ -327,5 +328,6 @@ r = requests.post(SLACK_WEBHOOK, json={"text": msg})
 print(f"Slack: {r.status_code}")
 if r.status_code == 200:
     print("DONE — Report sent successfully ✓")
+
 
 

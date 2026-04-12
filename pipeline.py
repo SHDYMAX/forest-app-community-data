@@ -53,7 +53,8 @@ for listing in ["new", "hot"]:
             "https://api.firecrawl.dev/v1/scrape",
             headers=FC_HEADERS,
             json={"url": f"https://redlib.catsarch.com/r/forestapp/{listing}",
-                  "formats": ["markdown"], "onlyMainContent": True},
+                  "formats": ["markdown"], "onlyMainContent": True,
+                  "maxAge": 0},  # 強制不用快取，確保抓到最新文章
             timeout=30)
         md = r.json().get("data", {}).get("markdown", "")
         # 按分隔線切段，每段是一篇文章
@@ -250,8 +251,17 @@ def fmt_post_for_report(e):
         block += "\n用戶留言：（無留言）"
     return block
 
+# 若今日無新文章，往前找最近一天有資料的日期
+if not new_forest:
+    latest_date = max((e["date_collected"] for e in existing
+                       if e["category"] == "forest_app"), default=None)
+    if latest_date:
+        new_forest = [e for e in existing if e["category"] == "forest_app"
+                      and e["date_collected"] == latest_date]
+        print(f"No new posts today, falling back to {latest_date} ({len(new_forest)} posts)")
+
 if not new_forest and not new_others:
-    summary = "今日 r/forestapp 無新增討論。"
+    summary = "近期 r/forestapp 無討論資料。"
 else:
     # Part 1：今日 r/forestapp 每篇文章固定輸出
     forest_blocks = "\n\n".join([f"【{i+1}】{fmt_post_for_report(e)}"
@@ -347,6 +357,7 @@ r = requests.post(SLACK_WEBHOOK, json={"text": msg})
 print(f"Slack: {r.status_code}")
 if r.status_code == 200:
     print("DONE — Report sent successfully ✓")
+
 
 
 

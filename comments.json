@@ -2250,7 +2250,8 @@
     "score": 0,
     "url": "https://www.reddit.com/r/forestapp/comments/1sj4uan/first_week_of_school_complete/",
     "is_complaint": false,
-    "complaint_keywords": []
+    "complaint_keywords": [],
+    "comments": []
   },
   {
     "id": "1sj0vyh",
@@ -2264,7 +2265,10 @@
     "score": 0,
     "url": "https://www.reddit.com/r/forestapp/comments/1sj0vyh/how_is_this_tree_combo/",
     "is_complaint": false,
-    "complaint_keywords": []
+    "complaint_keywords": [],
+    "comments": [
+      "Woww this is soo beautiful. I’ll also try planting these trees together"
+    ]
   },
   {
     "id": "1siinrm",
@@ -2278,7 +2282,11 @@
     "score": 0,
     "url": "https://www.reddit.com/r/forestapp/comments/1siinrm/can_someone_be_my_planting_companion_please/",
     "is_complaint": false,
-    "complaint_keywords": []
+    "complaint_keywords": [],
+    "comments": [
+      "dm. I'm doing 12.5 daily. with a schedule.",
+      "I'll be happy to jion"
+    ]
   },
   {
     "id": "1sichtx",
@@ -2292,6 +2300,11 @@
     "score": 0,
     "url": "https://www.reddit.com/r/forestapp/comments/1sichtx/an_option_to_disable_pause_is_needed/",
     "is_complaint": false,
-    "complaint_keywords": []
+    "complaint_keywords": [],
+    "comments": [
+      "You can end your focus time without pausing tho.",
+      "Agreed. In the many years I have used the app, it’s definitely morphed in purpose. That’s not to say the addition of the stopwatch mode or the pause function don’t have utility for people who want to track time spent, but the core aim to help people stop using their phone and focus on studying has definitely been lost over time.",
+      "i think so too. i could be wrong but shouldn't that be a pretty easy feature?"
+    ]
   }
 ]

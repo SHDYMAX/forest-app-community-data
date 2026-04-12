@@ -2173,7 +2173,8 @@
     "score": 0,
     "url": "https://www.reddit.com/r/forestapp/comments/qc2wvq/expert_planter_in_5_weeks/",
     "is_complaint": false,
-    "complaint_keywords": []
+    "complaint_keywords": [],
+    "comments": []
   },
   {
     "id": "1ro7yvj",
@@ -2187,7 +2188,8 @@
     "score": 0,
     "url": "https://www.reddit.com/r/studytips/comments/1ro7yvj/forest_app_just_killed_itself_with_subscriptions/",
     "is_complaint": false,
-    "complaint_keywords": []
+    "complaint_keywords": [],
+    "comments": []
   },
   {
     "id": "1rkc5t0",
@@ -2203,7 +2205,8 @@
     "is_complaint": true,
     "complaint_keywords": [
       "hate"
-    ]
+    ],
+    "comments": []
   },
   {
     "id": "1o8ajo2",
@@ -2217,7 +2220,8 @@
     "score": 0,
     "url": "https://www.reddit.com/r/neurodiversity/comments/1o8ajo2/is_there_any_app_for_body_doubling_you_have_tried/",
     "is_complaint": false,
-    "complaint_keywords": []
+    "complaint_keywords": [],
+    "comments": []
   },
   {
     "id": "1flkh7l",
@@ -2231,6 +2235,7 @@
     "score": 0,
     "url": "https://www.reddit.com/r/ProductivityApps/comments/1flkh7l/live_accountability_body_doubling_coworking/",
     "is_complaint": false,
-    "complaint_keywords": []
+    "complaint_keywords": [],
+    "comments": []
   }
 ]

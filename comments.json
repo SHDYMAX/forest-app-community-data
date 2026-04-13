@@ -2321,7 +2321,8 @@
     "is_complaint": true,
     "complaint_keywords": [
       "problem"
-    ]
+    ],
+    "comments": []
   },
   {
     "id": "1sjloq5",
@@ -2335,7 +2336,10 @@
     "score": 0,
     "url": "https://www.reddit.com/r/forestapp/comments/1sjloq5/how_to_activate_sound_notifications_without/",
     "is_complaint": false,
-    "complaint_keywords": []
+    "complaint_keywords": [],
+    "comments": [
+      "Allow notifications And update to latest version Sound after session stopped working for me temporarily But it’s working after the new update"
+    ]
   },
   {
     "id": "1sjgs6n",
@@ -2351,6 +2355,10 @@
     "is_complaint": true,
     "complaint_keywords": [
       "issue"
+    ],
+    "comments": [
+      "I'm experiencing the same problem. Very disappointing. If I can't find a solution, I'll have to look for alternatives to the forest.",
+      "Blank white screen usually means the app can't reach their servers or something is stuck in the cache. Try this: offload the app (Settings > General > iPhone Storage > Forest > Offload App). Don't delete it. Offload keeps your data. Then reinstall. That fixed it for me once on a different app. If that doesn't work, it's probably on their end. Check their status page or Twitter. If you want help se"
     ]
   },
   {
@@ -2368,7 +2376,8 @@
     "complaint_keywords": [
       "bug",
       "problem"
-    ]
+    ],
+    "comments": []
   },
   {
     "id": "1sjbi38",
@@ -2382,7 +2391,12 @@
     "score": 0,
     "url": "https://www.reddit.com/r/forestapp/comments/1sjbi38/how_much_actually_are_you_guys_able_to_focus/",
     "is_complaint": false,
-    "complaint_keywords": []
+    "complaint_keywords": [],
+    "comments": [
+      "4-5 hr of deep focus and 2-3 of semi deep focus",
+      "more than 3 is a super duper good day for me 🤷‍♀️",
+      "If I do two, 2-hour sessions then I can manage about 4 hours with a small break in between. If I break it up into sessions of 50 mins on, 10 mins off, then I can manage up to about 6. I don't bother with shorter sessions because breaking my focus too frequently lowers my overall information retention"
+    ]
   },
   {
     "id": "1sj9yfo",
@@ -2396,7 +2410,12 @@
     "score": 0,
     "url": "https://www.reddit.com/r/forestapp/comments/1sj9yfo/ypt_or_forest/",
     "is_complaint": false,
-    "complaint_keywords": []
+    "complaint_keywords": [],
+    "comments": [
+      "And I do have forest pro to specify",
+      "- Better and user-friendly UI - Doesn’t necessarily have to lock all your apps (you can choose which ones to lock since I use Forest on my iPad) - The forest/trees are satisfying to look at after focusing. In YPT, you don’t necessarily have a “reward” after focusing",
+      "[https://www.reddit.com/r/forestapp/s/E75oELhi2a](https://redlib.catsarch.com/r/forestapp/s/E75oELhi2a) have this problem in forest"
+    ]
   },
   {
     "id": "goklqk",
@@ -2410,7 +2429,11 @@
     "score": 0,
     "url": "https://www.reddit.com/r/forestapp/comments/goklqk/first_post_here_can_i_have_a_cedar_tree_flair/",
     "is_complaint": false,
-    "complaint_keywords": []
+    "complaint_keywords": [],
+    "comments": [
+      "Thank you mods for the flair, really appreciate it!",
+      "Alright, I'm gonna ask a noob question, what is a flair?"
+    ]
   },
   {
     "id": "1mpn15v",
@@ -2424,7 +2447,8 @@
     "score": 0,
     "url": "https://www.reddit.com/r/ProductivityApps/comments/1mpn15v/do_i_trust_the_screen_time_number_on_my_settings/",
     "is_complaint": false,
-    "complaint_keywords": []
+    "complaint_keywords": [],
+    "comments": []
   },
   {
     "id": "1rdosh3",
@@ -2438,7 +2462,8 @@
     "score": 0,
     "url": "https://www.reddit.com/r/GetStudying/comments/1rdosh3/top_5_underrated_apps_that_has_helped_me_as_a/",
     "is_complaint": false,
-    "complaint_keywords": []
+    "complaint_keywords": [],
+    "comments": []
   },
   {
     "id": "1lacg81",
@@ -2452,7 +2477,8 @@
     "score": 0,
     "url": "https://www.reddit.com/r/adhdwomen/comments/1lacg81/anybody_try_one_of_those_body_doubling_online/",
     "is_complaint": false,
-    "complaint_keywords": []
+    "complaint_keywords": [],
+    "comments": []
   },
   {
     "id": "1sfnqbz",
@@ -2466,7 +2492,8 @@
     "score": 0,
     "url": "https://www.reddit.com/r/AdultADHDSupportGroup/comments/1sfnqbz/anyone_here_tried_virtual_body_doubling_does_it/",
     "is_complaint": false,
-    "complaint_keywords": []
+    "complaint_keywords": [],
+    "comments": []
   },
   {
     "id": "1scn98w",
@@ -2480,7 +2507,8 @@
     "score": 0,
     "url": "https://www.reddit.com/r/ADHD/comments/1scn98w/body_doubling_want_to_try_it_but_have_no_idea/",
     "is_complaint": false,
-    "complaint_keywords": []
+    "complaint_keywords": [],
+    "comments": []
   },
   {
     "id": "1sc4zp7",
@@ -2494,6 +2522,7 @@
     "score": 0,
     "url": "https://www.reddit.com/r/AuDHDWomen/comments/1sc4zp7/virtual_body_doubling_helpful_or_just_hype/",
     "is_complaint": false,
-    "complaint_keywords": []
+    "complaint_keywords": [],
+    "comments": []
   }
 ]

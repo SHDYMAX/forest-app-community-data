@@ -1,5 +1,8 @@
 name: Forest App Daily Report
 
+on:
+  workflow_dispatch:
+
 jobs:
   run-report:
     runs-on: ubuntu-latest

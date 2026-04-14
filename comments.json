@@ -2554,6 +2554,13 @@
     "is_complaint": true,
     "complaint_keywords": [
       "hate"
+    ],
+    "comments": [
+      "I don't know. I mean yeah, 5 hours per day is a lot, but even if all we get are some free extra crystals without doing anything differently, then I personally, don't see a reason to be angered by it. It's just like... Oh... Look... Free stuff!!",
+      "to be honest they should push more into the planting real trees concept because isnt this specifically the point of using forest instead of any other app like this? This would motivate me, knowing that if i focus on something for four hours ill plant a tree somewhere, but a different colored digital background isnt rrly the same",
+      "How do you even Switch the Land Style. I have unlocked one a few days ago but i dont know where i can Switch it",
+      "Bro cmon! 5 hours isn’t much! It doesn’t matter for what youre using this app! You can do your hobby/office work or anything where youre putting yourself in, should be atleast 5 hours!",
+      "Hey... as someone who hasn't used the app in about 4 months, wtf is going on in the image?"
     ]
   },
   {
@@ -2568,7 +2575,10 @@
     "score": 0,
     "url": "https://www.reddit.com/r/forestapp/comments/1kteequ/sundae_tree_pattern/",
     "is_complaint": false,
-    "complaint_keywords": []
+    "complaint_keywords": [],
+    "comments": [
+      "What is that blue flower"
+    ]
   },
   {
     "id": "gqxzis",
@@ -2582,7 +2592,10 @@
     "score": 0,
     "url": "https://www.reddit.com/r/forestapp/comments/gqxzis/can_i_get_a_baobab_yellow_oak_and_a_matcha_azuki/",
     "is_complaint": false,
-    "complaint_keywords": []
+    "complaint_keywords": [],
+    "comments": [
+      "Hi! Just chiming in to let you know we just raised the limit to [5 trees per user](https://redlib.catsarch.com/r/forestapp/comments/smbbmt/flair_challenge_update_explanation_post/) if you're interested in more flairs :)"
+    ]
   },
   {
     "id": "1lpsaf2",
@@ -2596,7 +2609,13 @@
     "score": 0,
     "url": "https://www.reddit.com/r/forestapp/comments/1lpsaf2/i_paid_for_this_app_now_i_have_to_subscribe_to/",
     "is_complaint": false,
-    "complaint_keywords": []
+    "complaint_keywords": [],
+    "comments": [
+      "![](https://redlib.catsarch.com/preview/pre/1qex5mxlcgaf1.jpeg?width=1179&format=pjpg&auto=webp&s=391b5e224bb4f1a1dd48c2ba0ea5ee269630c32e) From what I understand if you paid for the app you’ll be considered a PRO user, or at the very least they won’t take anything away from your current experience",
+      "Same, it is simply criminal.",
+      "Maybe they use your money to plant real trees? I don't know but they say something like that...",
+      "Non ho questa tua esperienza, ho aggiunto un nuovo tag proprio ora e me l’ha fatto fare senza problemi. Non ho plus ma ho pagato l’app nel 2020"
+    ]
   },
   {
     "id": "1jnokvl",
@@ -2610,7 +2629,8 @@
     "score": 0,
     "url": "https://www.reddit.com/r/nosurf/comments/1jnokvl/do_screen_time_limit_apps_actually_work_for_you/",
     "is_complaint": false,
-    "complaint_keywords": []
+    "complaint_keywords": [],
+    "comments": []
   },
   {
     "id": "1m81dkv",
@@ -2624,7 +2644,8 @@
     "score": 0,
     "url": "https://www.reddit.com/r/pomodoro/comments/1m81dkv/what_pomodoro_app_do_you_actually_use_recommend/",
     "is_complaint": false,
-    "complaint_keywords": []
+    "complaint_keywords": [],
+    "comments": []
   },
   {
     "id": "1jgvovb",
@@ -2638,7 +2659,8 @@
     "score": 0,
     "url": "https://www.reddit.com/r/vce/comments/1jgvovb/app_that_tracks_how_long_you_have_studied/",
     "is_complaint": false,
-    "complaint_keywords": []
+    "complaint_keywords": [],
+    "comments": []
   },
   {
     "id": "1rso4b0",
@@ -2652,7 +2674,8 @@
     "score": 0,
     "url": "https://www.reddit.com/r/ADHD/comments/1rso4b0/how_to_find_accountability_partnerbody_double_for/",
     "is_complaint": false,
-    "complaint_keywords": []
+    "complaint_keywords": [],
+    "comments": []
   },
   {
     "id": "1pfbqod",
@@ -2666,6 +2689,7 @@
     "score": 0,
     "url": "https://www.reddit.com/r/piano/comments/1pfbqod/does_practice_accountability_through_bodydoubling/",
     "is_complaint": false,
-    "complaint_keywords": []
+    "complaint_keywords": [],
+    "comments": []
   }
 ]

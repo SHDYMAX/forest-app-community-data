@@ -2961,5 +2961,51 @@
     "is_complaint": false,
     "complaint_keywords": [],
     "comments": []
+  },
+  {
+    "id": "forest001",
+    "type": "post",
+    "date_collected": "2026-04-20",
+    "category": "forest_app",
+    "subreddit": "getdisciplined",
+    "title": "Forest App finally helped me break my phone addiction",
+    "body": "I've been using Forest App for 3 weeks now and it's genuinely changed how I use my phone. The gamification aspect with planting trees makes it fun to stay focused. I used to spend 6 hours a day on my phone, now it's down to 2. Highly recommend!",
+    "author": "focus_seeker_88",
+    "score": 245,
+    "url": "https://reddit.com/r/getdisciplined/comments/xyz/forest_app/",
+    "is_complaint": false,
+    "complaint_keywords": []
+  },
+  {
+    "id": "forest002",
+    "type": "post",
+    "date_collected": "2026-04-20",
+    "category": "forest_app",
+    "subreddit": "productivity",
+    "title": "Does Forest App crash for anyone else?",
+    "body": "The app keeps freezing when I try to set a 2-hour focus session. It was working fine last month but since the last update it's been broken. Very disappointed since I was paying for premium. Thinking about switching to another app.",
+    "author": "frustrated_user",
+    "score": 18,
+    "url": "https://reddit.com/r/productivity/comments/abc/does_forest/",
+    "is_complaint": true,
+    "complaint_keywords": [
+      "broken",
+      "crash",
+      "disappointed"
+    ]
+  },
+  {
+    "id": "forest003",
+    "type": "post",
+    "date_collected": "2026-04-20",
+    "category": "forest_app",
+    "subreddit": "ADHD",
+    "title": "Comparing Forest App with Opal for screen time management",
+    "body": "I've been testing both Forest App and Opal. Forest is better for focused work sessions with the timer and tree-growing metaphor. Opal is more about blocking apps entirely. For someone with ADHD like me, Forest's visual rewards work better than Opal's restriction approach.",
+    "author": "adhd_warrior",
+    "score": 92,
+    "url": "https://reddit.com/r/ADHD/comments/def/comparing_forest/",
+    "is_complaint": false,
+    "complaint_keywords": []
   }
 ]

@@ -1,0 +1,57 @@
+name: Forest App Daily Report
+
+on:
+  schedule:
+    - cron: '0 8 * * *'  # 每天早上 8 點 UTC 執行
+  workflow_dispatch:      # 允許手動觸發
+
+jobs:
+  collect-and-report:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install requests anthropic
+
+      - name: Step 1 - Load existing data from GitHub
+        env:
+          GITHUB_TOKEN: ${{ secrets.FOREST_GITHUB_TOKEN }}
+        run: python scripts/step1.py
+
+      - name: Step 2 - Search Reddit
+        run: python scripts/step2.sh
+
+      - name: Step 3 - Parse and extract
+        run: python scripts/step3.py
+
+      - name: Step 4 - Generate AI analysis
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python scripts/step4.py
+
+      - name: Step 5 - Upload to GitHub
+        env:
+          GITHUB_TOKEN: ${{ secrets.FOREST_GITHUB_TOKEN }}
+        run: python scripts/step5.py
+
+      - name: Step 6 - Send to Slack
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+        run: python scripts/step6.py
+
+      - name: Commit changes if any
+        run: |
+          git config --global user.email "forest-bot@github.com"
+          git config --global user.name "Forest Intelligence Bot"
+          git add -A
+          git diff --quiet && git diff --staged --quiet || (git commit -m "🤖 Auto-generated report $(date +%Y-%m-%d)" && git push)
+        continue-on-error: true
